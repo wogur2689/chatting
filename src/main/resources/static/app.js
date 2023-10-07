@@ -5,9 +5,6 @@ const stompClient = new StompJs.Client({
 stompClient.onConnect = (frame) => {
     setConnected(true);
     console.log('Connected: ' + frame);
-    stompClient.subscribe('/sub/greetings', (greeting) => {
-        showGreeting(JSON.parse(greeting.body).content);
-    });
 };
 
 stompClient.onWebSocketError = (error) => {
@@ -42,9 +39,34 @@ function disconnect() {
 }
 
 function sendName() {
+    //채팅할 방 구독
+    const roomUrl = '/sub/chat/room/' + $("#roomId").val();
+    stompClient.subscribe(roomUrl, (chatDto) => {
+        console.log(JSON.parse(chatDto.body).message);
+        showGreeting(JSON.parse(chatDto.body).message);
+    });
+
     stompClient.publish({
-        destination: "/pub/hello",
-        body: JSON.stringify({'name': $("#name").val()})
+        destination: "/pub/chat/enterUserTest",
+        body: JSON.stringify({
+            'type': 'ENTER',
+            'roomId': $("#roomId").val(),
+            'sender': $("#name").val(),
+            'time': "오후 3:00"
+        })
+    });
+}
+
+function sendMsg() {
+    stompClient.publish({
+        destination: "/pub/chat/sendMessageTest",
+        body: JSON.stringify({
+            'type': 'TALK',
+            'roomId': $("#roomId").val(),
+            'sender': $("#name").val(),
+            'message': $("#message").val(),
+            'time': "오후 3:00"
+        })
     });
 }
 
@@ -56,5 +78,6 @@ $(function () {
     $("form").on('submit', (e) => e.preventDefault());
     $( "#connect" ).click(() => connect());
     $( "#disconnect" ).click(() => disconnect());
-    $( "#send" ).click(() => sendName());
+    $( "#Entrance").click(() => sendName());
+    $( "#send" ).click(() => sendMsg());
 });

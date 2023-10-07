@@ -9,6 +9,6 @@ public class RoomUtil {
      */
     public static String randomRoomId() {
         Random random = new Random();
-        return String.valueOf(random.nextInt(10000, 100000));
+        return String.valueOf(random.nextInt(1000, 10000));
     }
 }

@@ -11,13 +11,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-
-import java.util.ArrayList;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -33,9 +28,7 @@ public class ChatController {
     // 처리가 완료되면 /sub/chat/room/roomId 로 메시지가 전송된다.
     @MessageMapping("/chat/enterUser")
     public void enterUser(@Payload ChatDTO chat, SimpMessageHeaderAccessor headerAccessor) {
-
-        // 채팅방 유저+1
-        repository.plusUserCnt(chat.getRoomId());
+        log.info(chat.toString());
 
         // 채팅방에 유저 추가 및 UserUUID 반환
         String userUUID = repository.addUser(chat.getRoomId(), chat.getSender());
@@ -45,17 +38,22 @@ public class ChatController {
         headerAccessor.getSessionAttributes().put("roomId", chat.getRoomId());
 
         chat.setMessage(chat.getSender() + " 님 입장!!");
-        template.convertAndSend("/sub/chat/room/" + chat.getRoomId(), chat);
 
+        //메세지 저장 추가
+        repository.saveMsg(chat);
+        template.convertAndSend("/sub/chat/room/" + chat.getRoomId(), chat);
     }
 
     // 해당 유저
     @MessageMapping("/chat/sendMessage")
     public void sendMessage(@Payload ChatDTO chat) {
         log.info("CHAT {}", chat);
-        chat.setMessage(chat.getMessage());
-        template.convertAndSend("/sub/chat/room/" + chat.getRoomId(), chat);
+        String msg = chat.getSender() + "님 : " + chat.getMessage();
+        chat.setMessage(msg);
 
+        //메세지 저장 추가
+        repository.saveMsg(chat);
+        template.convertAndSend("/sub/chat/room/" + chat.getRoomId(), chat);
     }
 
     // 유저 퇴장 시에는 EventListener 을 통해서 유저 퇴장을 확인
@@ -71,9 +69,6 @@ public class ChatController {
 
         log.info("headAccessor {}", headerAccessor);
 
-        // 채팅방 유저 -1
-        repository.minusUserCnt(roomId);
-
         // 채팅방 유저 리스트에서 UUID 유저 닉네임 조회 및 리스트에서 유저 삭제
         String username = repository.getUserName(roomId, userUUID);
         repository.delUser(roomId, userUUID);
@@ -88,27 +83,9 @@ public class ChatController {
                     .message(username + " 님 퇴장!!")
                     .build();
 
+            //메세지 저장 추가
+            repository.saveMsg(chat);
             template.convertAndSend("/sub/chat/room/" + roomId, chat);
         }
-    }
-
-    // 채팅에 참여한 유저 리스트 반환
-    @GetMapping("/chat/userlist")
-    @ResponseBody
-    public ArrayList<String> userList(String roomId) {
-
-        return repository.getUserList(roomId);
-    }
-
-    // 채팅에 참여한 유저 닉네임 중복 확인
-    @GetMapping("/chat/duplicateName")
-    @ResponseBody
-    public String isDuplicateName(@RequestParam("roomId") String roomId, @RequestParam("username") String username) {
-
-        // 유저 이름 확인
-        String userName = repository.isDuplicateName(roomId, username);
-        log.info("동작확인 {}", userName);
-
-        return userName;
     }
 }
