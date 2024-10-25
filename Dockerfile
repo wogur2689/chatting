@@ -1,5 +1,5 @@
 # jar 파일 빌드
-FROM openjdk:17 as builder
+FROM openjdk:17
 
 COPY gradlew .
 COPY gradle gradle
@@ -11,16 +11,13 @@ RUN ./gradlew bootjar
 
 # jar 실행
 # 빌드를 하지 않으므로 JDK가 아닌 JRE를 베이스 이미지로 세팅
-
 RUN addgroup --system --gid 1000 worker
 RUN adduser --system --uid 1000 --ingroup worker --disabled-password worker
 USER worker:worker
 
-COPY --from=builder build/libs/*.jar app.jar
-
-ENV PROFILE ${PROFILE}
+COPY build/libs/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Dspring.profiles.active=${PROFILE}", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app.jar"]
 
