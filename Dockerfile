@@ -1,16 +1,27 @@
-# open JDK 17
-FROM openjdk:17
+# jar 파일 빌드
+FROM openjdk:17 as builder
 
-# build
-CMD ["./gradlew", "clean", "build"]
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+COPY src src
+RUN chmod +x ./gradlew
+RUN ./gradlew bootjar
 
-#volume
-VOLUME /tmp
+# jar 실행
+# 빌드를 하지 않으므로 JDK가 아닌 JRE를 베이스 이미지로 세팅
+FROM openjdk:17-jre as runtime
 
-ARG JAR_FILE=build/libs/*.jar
+RUN addgroup --system --gid 1000 worker
+RUN adduser --system --uid 1000 --ingroup worker --disabled-password worker
+USER worker:worker
 
-COPY ${JAR_FILE} app.jar
+COPY --from=builder build/libs/*.jar app.jar
+
+ENV PROFILE ${PROFILE}
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+
+ENTRYPOINT ["java", "-Dspring.profiles.active=${PROFILE}", "-jar", "/app.jar"]
 
