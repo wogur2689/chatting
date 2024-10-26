@@ -1,24 +1,20 @@
-# jar 파일 빌드
-FROM openjdk:17
+# src build
+FROM gradle:8.2.1-jdk17-alpine as builder
 
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-COPY src src
-RUN pwd
-RUN chmod +x ./gradlew
-RUN ./gradlew bootjar
+WORKDIR /build
+COPY build.gradle settings.gradle /build/
+RUN gradle build --parallel --continue > /dev/null 2>&1 || true
 
-# jar 실행
-# 빌드를 하지 않으므로 JDK가 아닌 JRE를 베이스 이미지로 세팅
-RUN addgroup --system --gid 1000 worker
-RUN adduser --system --uid 1000 --ingroup worker --disabled-password worker
-USER worker:worker
+COPY . /build
+RUN gradle clean build --parallel
 
-COPY build/libs/*.jar app.jar
+# deploy
+FROM openjdk:17-alpine
+WORKDIR /app
+COPY --from=builder /build/build/libs/chatting-1.0.jar app.jar
 
 EXPOSE 8080
+USER nobody
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
